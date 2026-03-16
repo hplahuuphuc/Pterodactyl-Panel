@@ -16,19 +16,31 @@ cat << "EOF"
 ██╔══██╗██╔══╝  ██╔══╝  ██║  ██║██╔══╝  ██╔══██╗
 ██████╔╝███████╗███████╗██████╔╝███████╗██║  ██║
 ╚═════╝ ╚══════╝╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝
-              B E E D E R C L O U D
+            B E E D E R C L O U D
 EOF
 echo -e "${NC}"
 
-echo -e "${GRN}Installing Docker & Compose...${NC}"
+echo -e "${YEL}Installing Docker...${NC}"
 
 apt update
-apt install docker.io docker-compose -y
+apt install docker.io -y
 systemctl enable docker
 systemctl start docker
 
+echo -e "${YEL}Fixing old docker-compose bug...${NC}"
+
+apt remove docker-compose -y 2>/dev/null
+apt install docker-compose-plugin -y
+
+echo -e "${YEL}Cleaning old containers...${NC}"
+
+docker rm -f panel_database panel_cache panel_panel 2>/dev/null
+docker system prune -a -f
+
+echo -e "${CYN}Creating panel directory...${NC}"
+
 mkdir -p /home/pterodactyl/panel
-cd /home/pterodactyl/panel
+cd /home/pterodactyl/panel || exit
 
 echo -e "${CYN}Creating docker-compose.yml...${NC}"
 
@@ -56,7 +68,7 @@ services:
     restart: always
 
   panel:
-    image: ghcr.io/pterodactyl/panel:latest
+    image: ghcr.io/pterodactyl/panel:v1.11
     container_name: panel_panel
     restart: always
     ports:
@@ -89,14 +101,16 @@ services:
       REDIS_HOST: cache
 EOF
 
+echo -e "${CYN}Creating data folders...${NC}"
+
 mkdir -p data/{database,var,logs,nginx,certs}
 
 echo -e "${GRN}Starting containers...${NC}"
 
-docker-compose up -d
+docker compose up -d
 
 echo -e "${YEL}Waiting database start...${NC}"
-sleep 20
+sleep 25
 
 echo -e "${GRN}Running database migration...${NC}"
 
