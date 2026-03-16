@@ -27,26 +27,26 @@ apt install docker.io -y
 systemctl enable docker
 systemctl start docker
 
-echo -e "${YEL}Fixing old docker-compose bug...${NC}"
+echo -e "${YEL}Removing broken docker-compose v1...${NC}"
 
 apt remove docker-compose -y 2>/dev/null
+rm -f /usr/bin/docker-compose
+
+echo -e "${YEL}Installing Docker Compose v2...${NC}"
+
 apt install docker-compose-plugin -y
 
 echo -e "${YEL}Cleaning old containers...${NC}"
 
-docker rm -f panel_database panel_cache panel_panel 2>/dev/null
+docker rm -f $(docker ps -aq) 2>/dev/null
 docker system prune -a -f
 
-echo -e "${CYN}Creating panel directory...${NC}"
-
 mkdir -p /home/pterodactyl/panel
-cd /home/pterodactyl/panel || exit
+cd /home/pterodactyl/panel
 
 echo -e "${CYN}Creating docker-compose.yml...${NC}"
 
 cat <<EOF > docker-compose.yml
-version: "3"
-
 services:
 
   database:
@@ -57,7 +57,7 @@ services:
     volumes:
       - ./data/database:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: pterodactylroot
+      MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: panel
       MYSQL_USER: pterodactyl
       MYSQL_PASSWORD: pterodactyl
@@ -79,12 +79,9 @@ services:
     volumes:
       - ./data/var:/app/var
       - ./data/logs:/app/storage/logs
-      - ./data/nginx:/etc/nginx/http.d
-      - ./data/certs:/etc/letsencrypt
     environment:
       APP_URL: http://localhost:8030
       APP_TIMEZONE: UTC
-      APP_SERVICE_AUTHOR: admin@example.com
       TRUSTED_PROXIES: "*"
 
       DB_CONNECTION: mysql
@@ -101,9 +98,7 @@ services:
       REDIS_HOST: cache
 EOF
 
-echo -e "${CYN}Creating data folders...${NC}"
-
-mkdir -p data/{database,var,logs,nginx,certs}
+mkdir -p data/{database,var,logs}
 
 echo -e "${GRN}Starting containers...${NC}"
 
